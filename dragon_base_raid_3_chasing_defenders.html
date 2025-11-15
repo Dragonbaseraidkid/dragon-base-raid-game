@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dragon Base Raid – 3 Chasing Defenders</title>
+<style>
+body { background:#111; color:#eee; font-family:Arial; text-align:center; }
+#gameContainer { margin:20px auto; display:inline-block; border:3px solid #b30000; }
+canvas { background:#133015; }
+h1 { color:#ff4444; }
+</style>
+</head>
+<body>
+<h1>🐉 3 CHASING DEFENDERS MODE 🐉</h1>
+<p>All 3 defenders chase you ANYWHERE on the map!</p>
+<p>Move: WASD or Arrow Keys — Restart: R</p>
+
+<div id="gameContainer"><canvas id="game" width="800" height="400"></canvas></div>
+
+<script>
+const c=document.getElementById("game"),x=c.getContext("2d");
+const W=c.width,H=c.height;
+
+// bases
+const home={x:20,y:H/2-80,w:80,h:160};
+const enemy={x:W-100,y:H/2-80,w:80,h:160};
+
+// player
+const p={x:home.x+120,y:H/2,w:20,h:20,s:3};
+
+// egg
+const eggStart={x:enemy.x+40,y:enemy.y+80};
+const egg={x:eggStart.x,y:eggStart.y,r:10,base:true};
+let carry=false;
+
+// 3 chasing defenders
+function makeDef(x,y,spd){
+  return {x,y,w:24,h:24,s:spd};
+}
+const d1=makeDef(enemy.x-40,enemy.y+20,2.5);
+const d2=makeDef(enemy.x-40,enemy.y+100,2.2);
+const d3=makeDef(enemy.x+enemy.w+20,enemy.y+50,2.8);
+
+let keys={},state="play";
+onkeydown=e=>{keys[e.key.toLowerCase()]=1;if(e.key=="r")reset();}
+onkeyup=e=>keys[e.key.toLowerCase()]=0;
+
+function reset(){
+  p.x=home.x+120;p.y=H/2;
+  carry=false;
+  egg.base=true;egg.x=eggStart.x;egg.y=eggStart.y;
+  d1.x=enemy.x-40;d1.y=enemy.y+20;
+  d2.x=enemy.x-40;d2.y=enemy.y+100;
+  d3.x=enemy.x+enemy.w+20;d3.y=enemy.y+50;
+  state="play";
+}
+
+function movePlayer(){
+  let vx=0,vy=0;
+  if(keys["w"]||keys["arrowup"])vy--;
+  if(keys["s"]||keys["arrowdown"])vy++;
+  if(keys["a"]||keys["arrowleft"])vx--;
+  if(keys["d"]||keys["arrowright"])vx++;
+  if(vx&&vy){vx/=Math.SQRT2;vy/=Math.SQRT2;}
+  p.x+=vx*p.s;p.y+=vy*p.s;
+  p.x=Math.max(0,Math.min(W-p.w,p.x));
+  p.y=Math.max(0,Math.min(H-p.h,p.y));
+  if(carry){egg.x=p.x+p.w/2;egg.y=p.y-10;}
+}
+
+function chase(d){
+  let dx=p.x-d.x,dy=p.y-d.y,dist=Math.hypot(dx,dy)||1;
+  d.x+=dx/dist*d.s;
+  d.y+=dy/dist*d.s;
+}
+
+function box(o){return{x:o.x,y:o.y,w:o.w,h:o.h};}
+function hit(a,b){
+  return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+}
+function circleHit(c,r){
+  return c.x>r.x&&c.x<r.x+r.w&&c.y>r.y&&c.y<r.y+r.h;
+}
+
+function check(){
+  if(state!=="play")return;
+  let pb=box(p);
+
+  // pickup egg
+  if(!carry&&egg.base){
+    let eb={x:egg.x-egg.r,y:egg.y-egg.r,w:egg.r*2,h:egg.r*2};
+    if(hit(pb,eb)){carry=true;egg.base=false;}
+  }
+
+  // chase collisions
+  [d1,d2,d3].forEach(d=>{
+    if(hit(pb,box(d))){
+      if(carry){
+        carry=false;
+        egg.base=true;egg.x=eggStart.x;egg.y=eggStart.y;
+      }
+      state="caught";
+    }
+  });
+
+  // win
+  if(carry && circleHit(egg,home)) state="win";
+}
+
+function drawBase(b,col,txt){
+  x.fillStyle=col;x.fillRect(b.x,b.y,b.w,b.h);
+  x.fillStyle="#fff";x.fillText(txt,b.x+8,b.y+20);
+}
+
+function draw(){
+  x.clearRect(0,0,W,H);
+  drawBase(home,"#004488","HOME");
+  drawBase(enemy,"#661111","ENEMY");
+
+  // egg
+  if(egg.base||carry){
+    x.fillStyle="#ffd700";
+    x.beginPath();x.arc(egg.x,egg.y,egg.r,0,Math.PI*2);x.fill();
+  }
+
+  // player
+  x.fillStyle="#00ffcc";
+  x.fillRect(p.x,p.y,p.w,p.h);
+
+  // defenders
+  x.fillStyle="#ff4444";x.fillRect(d1.x,d1.y,d1.w,d1.h);
+  x.fillRect(d2.x,d2.y,d2.w,d2.h);
+  x.fillStyle="#ff8888";x.fillRect(d3.x,d3.y,d3.w,d3.h);
+
+  // text
+  x.fillStyle="#fff";x.font="20px Arial";
+  if(state==="caught")x.fillText("CAUGHT! Press R",W/2-80,H/2);
+  if(state==="win")x.fillText("YOU WIN! Press R",W/2-80,H/2);
+}
+
+function loop(){
+  if(state==="play"){
+    movePlayer();
+    chase(d1);chase(d2);chase(d3);
+    check();
+  }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+reset();loop();
+</script>
+</body>
+</html>
