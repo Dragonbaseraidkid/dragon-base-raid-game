@@ -1,52 +1,101 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Dragon Base Raid</title>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.5; }
-    h1 { color: #8B0000; }
-    h2 { margin-top: 20px; }
-    ul { margin-bottom: 10px; }
-  </style>
+<meta charset="UTF-8">
+<title>Dragon Base Raid – 3 Chasing Defenders</title>
+<style>
+body { background:#111; color:#eee; font-family:Arial; text-align:center; }
+#gameContainer { margin:20px auto; display:inline-block; border:3px solid #b30000; }
+canvas { background:#133015; }
+h1 { color:#ff4444; }
+</style>
 </head>
 <body>
-  <h1>🐉⚔️ Dragon Base Raid</h1>
+<h1>🐉 3 CHASING DEFENDERS MODE 🐉</h1>
+<p>All 3 defenders chase you ANYWHERE on the map!</p>
+<p>Move: WASD or Arrow Keys — Restart: R</p>
 
-  <h2>Players</h2>
-  <ul>
-    <li>Team 1: 2 players</li>
-    <li>Team 2: 2 players</li>
-  </ul>
+<div id="gameContainer"><canvas id="game" width="800" height="400"></canvas></div>
 
-  <h2>Setup</h2>
-  <ul>
-    <li>2 bases (trees, cones, chairs, or stick circles)</li>
-    <li>1 dragon egg in each base</li>
-    <li>Bases 15–20 steps apart</li>
-  </ul>
+<script>
+const c=document.getElementById("game"),x=c.getContext("2d");
+const W=c.width,H=c.height;
 
-  <h2>Roles</h2>
-  <ul>
-    <li><strong>Defender:</strong> Guards egg, tags attackers, stays within 5 steps of the base.</li>
-    <li><strong>Raider:</strong> Runs to the other base to steal the egg and can tag the other raider anywhere on the field.</li>
-  </ul>
+// bases
+const home={x:20,y:H/2-80,w:80,h:160};
+const enemy={x:W-100,y:H/2-80,w:80,h:160};
 
-  <h2>Core Rules</h2>
-  <ul>
-    <li>If a defender tags a raider, that raider must return to their own base line before trying again.</li>
-    <li>If a raider tags the other raider, the tagged raider freezes for 5 seconds.</li>
-    <li>If a raider is tagged while holding the egg, they drop it on the ground where they were tagged.</li>
-    <li>The defender picks up the dropped egg and returns it to their base.</li>
-    <li>The first team to steal the other team’s egg and bring it safely back to their own base wins the round.</li>
-  </ul>
+// player
+const p={x:home.x+120,y:H/2,w:20,h:20,s:3};
 
-  <h2>Advanced Modes</h2>
-  <ul>
-    <li><strong>Mode 1 – Double Egg Raid:</strong> Each base has 2 eggs. Steal both to win.</li>
-    <li><strong>Mode 2 – Timed Siege:</strong> If no egg is stolen in 2–3 minutes, the team whose raider got closest to the enemy egg most times wins.</li>
-    <li><strong>Mode 3 – Sudden Death:</strong> Once the egg is picked up, defenders may move anywhere. If the egg carrier is tagged, the round ends with no winner.</li>
-    <li><strong>Mode 4 – Role Swap Round:</strong> After each round, swap defender and raider roles.</li>
-  </ul>
-</body>
-</html>
+// egg
+const eggStart={x:enemy.x+40,y:enemy.y+80};
+const egg={x:eggStart.x,y:eggStart.y,r:10,base:true};
+let carry=false;
+
+// 3 chasing defenders
+function makeDef(x,y,spd){
+  return {x,y,w:24,h:24,s:spd};
+}
+const d1=makeDef(enemy.x-40,enemy.y+20,2.5);
+const d2=makeDef(enemy.x-40,enemy.y+100,2.2);
+const d3=makeDef(enemy.x+enemy.w+20,enemy.y+50,2.8);
+
+let keys={},state="play";
+onkeydown=e=>{keys[e.key.toLowerCase()]=1;if(e.key=="r")reset();}
+onkeyup=e=>keys[e.key.toLowerCase()]=0;
+
+function reset(){
+  p.x=home.x+120;p.y=H/2;
+  carry=false;
+  egg.base=true;egg.x=eggStart.x;egg.y=eggStart.y;
+  d1.x=enemy.x-40;d1.y=enemy.y+20;
+  d2.x=enemy.x-40;d2.y=enemy.y+100;
+  d3.x=enemy.x+enemy.w+20;d3.y=enemy.y+50;
+  state="play";
+}
+
+function movePlayer(){
+  let vx=0,vy=0;
+  if(keys["w"]||keys["arrowup"])vy--;
+  if(keys["s"]||keys["arrowdown"])vy++;
+  if(keys["a"]||keys["arrowleft"])vx--;
+  if(keys["d"]||keys["arrowright"])vx++;
+  if(vx&&vy){vx/=Math.SQRT2;vy/=Math.SQRT2;}
+  p.x+=vx*p.s;p.y+=vy*p.s;
+  p.x=Math.max(0,Math.min(W-p.w,p.x));
+  p.y=Math.max(0,Math.min(H-p.h,p.y));
+  if(carry){egg.x=p.x+p.w/2;egg.y=p.y-10;}
+}
+
+function chase(d){
+  let dx=p.x-d.x,dy=p.y-d.y,dist=Math.hypot(dx,dy)||1;
+  d.x+=dx/dist*d.s;
+  d.y+=dy/dist*d.s;
+}
+
+function box(o){return{x:o.x,y:o.y,w:o.w,h:o.h};}
+function hit(a,b){
+  return a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+}
+function circleHit(c,r){
+  return c.x>r.x&&c.x<r.x+r.w&&c.y>r.y&&c.y<r.y+r.h;
+}
+
+function check(){
+  if(state!=="play")return;
+  let pb=box(p);
+
+  // pickup egg
+  if(!carry&&egg.base){
+    let eb={x:egg.x-egg.r,y:egg.y-egg.r,w:egg.r*2,h:egg.r*2};
+    if(hit(pb,eb)){carry=true;egg.base=false;}
+  }
+
+  // chase collisions
+  [d1,d2,d3].forEach(d=>{
+    if(hit(pb,box(d))){
+      if(carry){
+        carry=false;
+        egg.base=true;eg
+
